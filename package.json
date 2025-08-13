@@ -1,0 +1,17 @@
+{
+  "name": "son",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n FRONTEND,BACKEND -c green,blue \"npm --workspace frontend run dev\" \"npm --workspace backend run dev\"",
+    "build": "npm --workspace frontend run build",
+    "start": "npm --workspace backend run start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+} 
