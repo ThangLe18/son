@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAXPING App – ENTERPRISE FINAL</title>
+<style>
+body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;padding:16px;background:#0b1220;color:#e8eef7}
+.card{background:#0f172a;border:1px solid #1f2a44;border-radius:10px;padding:12px;margin:8px 0}
+input,button,select,textarea{border-radius:8px;border:1px solid #2b3b5f;background:#0b1220;color:#e6ebf2;padding:8px 10px}
+pre{white-space:pre-wrap}
+</style>
+<body>
+<h2>MAXPING App – ENTERPRISE FINAL</h2>
+<div class="card">
+  <label>Tenant ID <input id="tenant" value="sun" style="min-width:120px"></label>
+  <label>API URL <input id="api" value="http://localhost:8080" style="min-width:280px"></label>
+  <select id="mode"><option value="online">ON (Live)</option><option value="offline">OFF (Mock)</option></select>
+  <button onclick="applyMode()">Áp dụng</button>
+  <button onclick="check()">/health</button>
+  <span id="status"></span>
+</div>
+<div class="card">
+  <h3>Auth</h3>
+  <input id="email" value="super@admin.com">
+  <input id="password" type="password" value="123456">
+  <button onclick="login()">Đăng nhập</button>
+  <pre id="authOut">Chưa đăng nhập.</pre>
+</div>
+<div class="card">
+  <h3>CRM – Leads</h3>
+  <div>
+    <input id="leadTitle" placeholder="Tiêu đề lead">
+    <input id="leadValue" type="number" step="0.01" placeholder="Giá trị">
+    <button onclick="createLead()">Tạo lead</button>
+    <button onclick="listLeads()">Tải Leads</button>
+  </div>
+  <pre id="leads">[]</pre>
+</div>
+<div class="card">
+  <h3>POS – Products</h3>
+  <div>
+    <input id="prodName" placeholder="Tên SP">
+    <input id="prodPrice" type="number" step="0.01" placeholder="Giá">
+    <button onclick="createProduct()">Tạo SP</button>
+    <button onclick="listProducts()">Tải Products</button>
+  </div>
+  <pre id="products">[]</pre>
+</div>
+<div class="card">
+  <h3>Billing – Stripe</h3>
+  <input id="priceId" placeholder="price_... (test/live)">
+  <input id="successUrl" placeholder="https://yourdomain.com/success">
+  <input id="cancelUrl" placeholder="https://yourdomain.com/cancel">
+  <button onclick="createCheckout()">Create Checkout</button>
+  <pre id="billOut">—</pre>
+</div>
+<div class="card">
+  <h3>AI Gợi ý</h3>
+  <select id="aiType"><option>lead</option><option>product</option><option>appointment</option></select>
+  <textarea id="aiInput" rows="3" style="width:100%" placeholder='{"title":"Khách VIP","notes":"Thích trẻ hoá"}'></textarea>
+  <button onclick="askAI()">Gợi ý</button>
+  <pre id="aiOut">—</pre>
+</div>
+<div class="card">
+  <h3>Queue</h3>
+  <button onclick="sync()">Sync → API</button>
+  <button onclick="flushQ()">Flush Queue</button>
+</div>
+<script>
+let apiBase = document.getElementById('api').value.replace(/\/$/,'')
+let tenant = document.getElementById('tenant').value
+let mock = false, token=null
+async function registerSW(){ if('serviceWorker' in navigator){ await navigator.serviceWorker.register('./sw.js') } }
+async function sendSW(msg){ if(navigator.serviceWorker?.controller){ navigator.serviceWorker.controller.postMessage(msg) } }
+function headers(extra={}){ const h={'Content-Type':'application/json','X-Tenant-Id':tenant}; if(token) h['Authorization']='Bearer '+token; return {...h,...extra} }
+async function applyMode(){ apiBase=document.getElementById('api').value.replace(/\/$/,''); tenant=document.getElementById('tenant').value; mock=document.getElementById('mode').value==='offline'; await sendSW({type:'SET_MODE',mock,tenant,token}); document.getElementById('status').textContent='Mode: '+(mock?'Offline':'Live')+' | Tenant: '+tenant }
+async function check(){ try{ const r=await fetch(apiBase+'/health',{headers:headers()}); const j=await r.json(); document.getElementById('status').textContent='Health: '+JSON.stringify(j) }catch(e){ document.getElementById('status').textContent='Lỗi: '+e } }
+async function fetchJSON(path,opts={}){ const r=await fetch(apiBase+path,{headers:headers(),...opts}); if(!r.ok){ let m='API error'; try{const j=await r.json(); m=j.error||m}catch{}; throw new Error(m) } return r.json() }
+async function login(){ const email=document.getElementById('email').value; const password=document.getElementById('password').value; const out=document.getElementById('authOut'); try{ const j=await fetchJSON('/auth/login',{method:'POST',body:JSON.stringify({email,password})}); token=j.token; out.textContent='OK: '+JSON.stringify(j,null,2) }catch(e){ out.textContent='Lỗi: '+e } }
+async function listLeads(){ const j=await fetchJSON('/crm/leads'); document.getElementById('leads').textContent=JSON.stringify(j,null,2) }
+async function createLead(){ const title=document.getElementById('leadTitle').value; const value=parseFloat(document.getElementById('leadValue').value||'0'); await fetchJSON('/crm/leads',{method:'POST',body:JSON.stringify({title,value,status:'NEW'})}); listLeads() }
+async function listProducts(){ const j=await fetchJSON('/pos/products'); document.getElementById('products').textContent=JSON.stringify(j,null,2) }
+async function createProduct(){ const name=document.getElementById('prodName').value; const price=parseFloat(document.getElementById('prodPrice').value||'0'); await fetchJSON('/pos/products',{method:'POST',body:JSON.stringify({name,price})}); listProducts() }
+async function createCheckout(){ const priceId=document.getElementById('priceId').value; const successUrl=document.getElementById('successUrl').value||window.location.href; const cancelUrl=document.getElementById('cancelUrl').value||window.location.href; const out=document.getElementById('billOut'); try{ const j=await fetchJSON('/billing/create-checkout-session',{method:'POST',body:JSON.stringify({priceId,successUrl,cancelUrl})}); out.textContent=JSON.stringify(j,null,2); if(j.url) window.open(j.url,'_blank') }catch(e){ out.textContent='Lỗi: '+e } }
+async function askAI(){ const type=document.getElementById('aiType').value; const input=JSON.parse(document.getElementById('aiInput').value||'{}'); const out=document.getElementById('aiOut'); try{ const j=await fetchJSON('/ai/suggest',{method:'POST',body:JSON.stringify({type,input})}); out.textContent=j.suggestion||JSON.stringify(j,null,2) }catch(e){ out.textContent='Lỗi: '+e } }
+async function sync(){ await sendSW({type:'SYNC',apiBase:apiBase,token,tenant}); alert('Đã yêu cầu đồng bộ.') }
+async function flushQ(){ await sendSW({type:'FLUSH_QUEUE'}); alert('Đã xoá queue.') }
+registerSW().then(applyMode).then(()=>{ listLeads(); listProducts(); })
+</script>
+</body>
+</html>

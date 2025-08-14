@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>QC60 – Hệ quản trị tập đoàn AI đa ngành (MAXPING UI + 3D Login)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/gh/tabler/icons/icons/buildings.svg#icon"/>
+  <style>
+    /* ======= 3D LOGIN ======= */
+    :root { --bg1:#0f172a; --bg2:#1e293b; --neon1:#22d3ee; --neon2:#ef4444; }
+    body { background: radial-gradient(1200px 800px at 10% 10%, rgba(34,211,238,.08), transparent 50%),
+                   radial-gradient(1000px 700px at 90% 20%, rgba(239,68,68,.08), transparent 50%),
+                   linear-gradient(135deg, #f0f9ff 0%, #fff 40%, #ffeef4 100%);
+           min-height: 100vh; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .glass { background: rgba(255,255,255,0.6); backdrop-filter: blur(6px); }
+    .ai-bubble { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%{box-shadow: 0 0 0 0 #38bdf8;} 70%{box-shadow: 0 0 0 15px #38bdf800;} 100%{box-shadow: 0 0 0 0 #38bdf8;} }
+    .chart-container { position: relative; height: 300px; }
+
+    /* 3D Scene */
+    .scene { perspective: 1200px; position: relative; }
+    .card3d {
+      transform-style: preserve-3d;
+      transition: transform .6s cubic-bezier(.2,.8,.2,1), box-shadow .6s;
+      background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.75));
+      border-radius: 16px; border: 1px solid rgba(255,255,255,.5);
+      box-shadow: 0 20px 60px rgba(2,6,23,.2);
+    }
+    .card3d:hover { box-shadow: 0 30px 80px rgba(2,6,23,.3); }
+    .neon-border {
+      position: relative;
+    }
+    .neon-border:before, .neon-border:after {
+      content:""; position: absolute; inset: -2px;
+      border-radius: 18px;
+      background: conic-gradient(from 0deg, var(--neon1), transparent 30%, var(--neon2), transparent 60%, var(--neon1));
+      filter: blur(14px); opacity:.6; z-index: -1;
+      animation: spin 6s linear infinite;
+    }
+    .neon-border:after { filter: blur(22px); opacity:.45; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Floating grid */
+    .grid3d {
+      position: absolute; inset: -60px -60px auto -60px; height: 220px; pointer-events: none;
+      background:
+        radial-gradient(600px 180px at 50% 120%, rgba(34,211,238,.2), transparent 60%),
+        linear-gradient(transparent 19px, rgba(148,163,184,.15) 20px),
+        linear-gradient(90deg, transparent 19px, rgba(148,163,184,.15) 20px);
+      background-size: auto, 20px 20px, 20px 20px;
+      transform: rotateX(60deg) translateZ(-60px);
+      transform-origin: top;
+      border-radius: 18px 18px 0 0;
+    }
+
+    /* Particles */
+    .particle { position: absolute; width: 6px; height: 6px; border-radius: 9999px; background: #22d3ee88; box-shadow: 0 0 16px #22d3ee; animation: float 10s linear infinite; }
+    @keyframes float { 0%{ transform: translateY(0) translateX(0);} 50%{ transform: translateY(-20px) translateX(10px);} 100%{ transform: translateY(0) translateX(0);} }
+
+    /* Sidebar drag styles */
+    .nav-link { display:flex; align-items:center; padding:.5rem 1rem; border-radius:.75rem; color:#374151; transition:background .2s; cursor:grab; }
+    .nav-link:hover{ background:white; }
+    .nav-link.active { background:white; color:#1d4ed8; font-weight:700; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+    .nav-link.is-dragging { opacity:.5; outline: 2px dashed #3b82f6; }
+
+    /* Mobile header */
+    @media (min-width: 640px){ header.mobile {display:none;} }
+  </style>
+</head>
+<body>
+<div id="app" class="min-h-screen flex flex-col">
+  <!-- MOBILE HEADER -->
+  <header class="mobile bg-white/70 shadow-md sticky top-0 z-10 flex justify-between items-center px-4 py-3">
+    <span class="font-bold text-xl text-blue-700">QC60 Admin</span>
+    <button id="menu-btn" class="text-blue-700 text-2xl p-1">&#9776;</button>
+  </header>
+
+  <div class="flex-1 flex flex-row">
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="hidden sm:block w-64 bg-white/80 p-4 border-r border-gray-200 transition-all duration-300">
+      <div class="hidden sm:flex justify-between items-center mb-5">
+        <span class="font-bold text-xl text-blue-700 flex items-center gap-2">
+          <svg width="24" height="24" fill="none" stroke="currentColor" class="inline"><use href="https://cdn.jsdelivr.net/gh/tabler/icons/icons/buildings.svg#icon"/></svg>
+          QC60 Admin
+        </span>
+        <div id="userbar" class="flex gap-2 items-center"></div>
+      </div>
+      <nav id="nav-menu" class="flex flex-col gap-1"></nav>
+      <div class="mt-auto pt-4 border-t border-gray-200">
+        <button onclick="exportBackup()" class="w-full text-left nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M12 17.5v-11M15.5 14L12 17.5 8.5 14M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+          Sao lưu dữ liệu
+        </button>
+        <button id="logout-btn-sidebar" onclick="logout()" class="w-full text-left nav-link text-red-500">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Thoát
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 flex flex-col p-4">
+      <div id="userbar-mobile" class="sm:hidden mb-4"></div>
+      <div id="mainview" class="flex-1 p-2"></div>
+    </main>
+  </div>
+
+  <!-- AI BUBBLE -->
+  <button id="ai-btn" class="fixed bottom-7 right-7 bg-cyan-500 hover:bg-cyan-600 rounded-full shadow-2xl w-16 h-16 flex items-center justify-center ai-bubble z-50" title="Trợ lý AI">🤖</button>
+
+  <!-- AI PANEL -->
+  <div id="ai-panel" class="hidden fixed bottom-24 right-5 bg-white rounded-xl shadow-xl p-4 w-80 max-w-xs z-50 border border-cyan-300 glass">
+    <div class="flex justify-between items-center mb-2">
+      <b class="text-cyan-700">AI Assistant</b>
+      <button onclick="closeAIPanel()" class="text-gray-400 hover:text-red-500">&times;</button>
+    </div>
+    <div id="ai-chat" class="overflow-y-auto h-48 text-sm mb-2 pr-1"></div>
+    <form id="ai-form" class="flex gap-1">
+      <input type="text" id="ai-input" class="border flex-1 rounded px-2 py-1" autocomplete="off" placeholder="Hỏi gì cũng được..." required>
+      <button type="submit" class="bg-cyan-500 text-white px-2 rounded">Gửi</button>
+    </form>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-white/80 py-2 text-center text-xs text-gray-500">
+    QC60 – Multi-Tenant AI Enterprise Suite © 2025
+  </footer>
+
+<!-- Module runtime -->
+<script type="module">
+  import { API } from '../core/api_adapter.js';
+  import { Plugin } from '../core/plugin_loader.js';
+  // expose for legacy scripts
+  window.QC60 = window.QC60 || {};
+  window.QC60.API = API;
+  window.QC60.Plugin = Plugin;
+</script>
+
+</div>
+
+<!-- ===== LOGIN OVERLAY (3D) ===== -->
+<div id="login-overlay" class="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 flex items-center justify-center z-[100]">
+  <!-- particles -->
+  <div id="particles"></div>
+  <div class="scene w-full max-w-sm px-6">
+    <div class="grid3d"></div>
+    <div id="login-card" class="neon-border card3d p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="https://cdn.jsdelivr.net/gh/tabler/icons/icons/buildings.svg#icon"/></svg>
+          <b class="text-lg">QC60 Admin</b>
+        </div>
+        <span class="text-xs px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">3D Secure</span>
+      </div>
+      <form id="login-form-3d" class="space-y-3">
+        <div>
+          <label class="text-xs text-slate-300">Email</label>
+          <input id="login-email" type="email" class="mt-1 w-full rounded-md bg-white/90 text-slate-900 px-3 py-2 outline-none" placeholder="you@company.com" required>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-300">Tên</label>
+            <input id="login-name" type="text" class="mt-1 w-full rounded-md bg-white/90 text-slate-900 px-3 py-2 outline-none" placeholder="Họ tên" required>
+          </div>
+          <div>
+            <label class="text-xs text-slate-300">Quyền</label>
+            <select id="login-role" class="mt-1 w-full rounded-md bg-white/90 text-slate-900 px-3 py-2 outline-none" required>
+              <option value="">Chọn quyền</option>
+              <option value="SuperAdmin">Super Admin</option>
+              <option value="Admin">Admin (công ty)</option>
+              <option value="User">Nhân viên</option>
+            </select>
+          </div>
+        </div>
+        <button class="w-full py-2 rounded-md bg-gradient-to-r from-cyan-500 to-rose-500 font-semibold shadow-md">Đăng nhập</button>
+        <div class="text-[10px] text-slate-400 text-center">Thiết kế theo chuẩn MAXPING UI – hiệu ứng 3D, neon, grid nổi</div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+const LS = localStorage;
+let state = {
+  user: null,
+  tenants: [],
+  modules: ['CRM','ERP','HRM','Tài chính','Nhân sự'],
+  products: [],
+  categories: [],
+  employees: [],
+  financials: [],
+  auditLogs: [],
+  navOrder: [],
+};
+function loadState(){ Object.keys(state).forEach(k=>{ const d=LS.getItem('QC60_'+k); if(d) state[k]=JSON.parse(d); }); }
+function saveState(){ Object.entries(state).forEach(([k,v])=>LS.setItem('QC60_'+k, JSON.stringify(v))); }
+function logAction(action, detail){ const user = state.user? state.user.email : 'Anonymous'; state.auditLogs.push({time:new Date().toISOString(), user, action, detail}); saveState(); }
+function resetState(){ LS.clear(); location.reload(); }
+
+// ===== UTILS =====
+function genID(){ return 'id-'+Math.random().toString(36).substr(2,8); }
+function checkPerm(role, action){
+  if(!state.user) return false;
+  if(state.user.role==='SuperAdmin') return true;
+  if(state.user.role==='Admin') return ['view','manage'].includes(action) || action.includes('product');
+  if(state.user.role==='User') return ['view','profile'].includes(action) || action.includes('product:view');
+  return false;
+}
+
+// ===== SIDEBAR / NAV (drag) =====
+let draggedElement = null;
+function setNav(links){
+  const nav = document.getElementById('nav-menu');
+  nav.innerHTML = '';
+  if (!state.navOrder.length) { state.navOrder = links.map(l=>l.label.replace(/\\s/g,'')); saveState(); }
+  const linkMap = Object.fromEntries(links.map(l=>[l.label.replace(/\\s/g,''), l]));
+  const sortedKeys = state.navOrder.filter(k=>linkMap[k]).concat(Object.keys(linkMap).filter(k=>!state.navOrder.includes(k)));
+  sortedKeys.forEach(key=>{
+    const l = linkMap[key];
+    const btn = document.createElement('button');
+    const id = 'nav-'+key;
+    btn.id = id;
+    btn.className = 'nav-link';
+    btn.innerHTML = \`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><use href="\${l.icon}"/></svg>\${l.label}\`;
+    btn.draggable = true;
+    btn.addEventListener('dragstart',(e)=>{ draggedElement = btn; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', id); btn.classList.add('is-dragging'); });
+    btn.addEventListener('dragend',()=>{ if(draggedElement){ draggedElement.classList.remove('is-dragging'); draggedElement=null; } });
+    btn.addEventListener('dragover',(e)=>{
+      e.preventDefault();
+      const target = e.target.closest('.nav-link');
+      if (draggedElement && target && target!==draggedElement){
+        const rect = target.getBoundingClientRect();
+        const midY = rect.top + rect.height/2;
+        if (e.clientY < midY) nav.insertBefore(draggedElement, target);
+        else nav.insertBefore(draggedElement, target.nextSibling);
+      }
+    });
+    btn.addEventListener('drop',(e)=>{
+      e.preventDefault();
+      if (draggedElement){
+        const newOrder = Array.from(nav.children).map(child=>child.id.replace('nav-',''));
+        state.navOrder = newOrder; saveState(); logAction('ReorderTabs', newOrder.join(','));
+        draggedElement.classList.remove('is-dragging'); draggedElement=null;
+        showAlert('Đã sắp xếp lại các tab!');
+      }
+    });
+    btn.onclick = (e)=>{ document.querySelectorAll('.nav-link').forEach(el=>el.classList.remove('active')); e.currentTarget.classList.add('active'); l.action(); };
+    nav.appendChild(btn);
+  });
+}
+function setUserbar(){
+  const userbarDesktop = document.getElementById('userbar');
+  const userbarMobile = document.getElementById('userbar-mobile');
+  if(state.user){
+    userbarDesktop.innerHTML = \`\${state.user.name} <span class="text-xs text-gray-400">(\${state.user.role})</span>\`;
+    userbarMobile.innerHTML = \`\${state.user.name} <span class="text-xs text-gray-400">(\${state.user.role})</span> <button onclick="logout()" class="ml-2 text-red-400 hover:text-red-600 text-sm">Thoát</button>\`;
+  } else { userbarDesktop.innerHTML=''; userbarMobile.innerHTML=''; }
+}
+function logout(){ state.user=null; saveState(); showLoginOverlay(); }
+function showAlert(msg, cls='bg-green-200'){
+  const dv = document.createElement('div'); dv.className = \`fixed top-5 right-5 p-3 z-50 rounded shadow-xl \${cls}\`; dv.innerText = msg; document.body.appendChild(dv); setTimeout(()=>dv.remove(),1800);
+}
+
+// ===== LOGIN 3D =====
+function showLoginOverlay(){
+  document.getElementById('login-overlay').classList.remove('hidden');
+  // particles generate
+  const p = document.getElementById('particles');
+  if (!p.hasChildNodes()){
+    for(let i=0;i<28;i++){
+      const dot = document.createElement('div');
+      dot.className='particle';
+      dot.style.left = Math.random()*100+'%';
+      dot.style.top = Math.random()*100+'%';
+      dot.style.animationDelay = (Math.random()*5)+'s';
+      p.appendChild(dot);
+    }
+  }
+  const card = document.getElementById('login-card');
+  const scene = document.querySelector('.scene');
+  scene.addEventListener('mousemove', (e)=>{
+    const r = scene.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - .5;
+    const y = (e.clientY - r.top) / r.height - .5;
+    card.style.transform = \`rotateY(\${x*12}deg) rotateX(\${-y*12}deg) translateZ(0)\`;
+  });
+  scene.addEventListener('mouseleave', ()=>{ card.style.transform = 'rotateY(0) rotateX(0)'; });
+  document.getElementById('login-form-3d').onsubmit = function(e){
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const name = document.getElementById('login-name').value.trim();
+    const role = document.getElementById('login-role').value;
+    let user = { id: genID(), name, email, role, tenant: null };
+    if(role!=='SuperAdmin' && state.tenants.length){
+      const tenant = prompt('Nhập tên công ty bạn thuộc (chính xác)');
+      let t = state.tenants.find(x=>x.name==tenant);
+      if(!t){ showAlert('Công ty không tồn tại!','bg-red-200'); return; }
+      user.tenant = t.id;
+    }
+    state.user = user; saveState(); document.getElementById('login-overlay').classList.add('hidden'); renderApp();
+  };
+}
+
+// ===== ROUTING =====
+function renderApp(){
+  if(!state.user){ showLoginOverlay(); return; }
+  document.getElementById('sidebar').classList.remove('hidden');
+  setUserbar();
+  if(state.user.role==='SuperAdmin'){
+    setNav([
+      {label:'Tổngquan', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/layout-dashboard.svg#icon', action:()=>renderDashboard()},
+      {label:'Côngty', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/building.svg#icon', action:()=>renderTenants()},
+      {label:'Sảnphẩm', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/box.svg#icon', action:()=>renderProducts()},
+      {label:'Nhânsự', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/users.svg#icon', action:()=>renderEmployees()},
+      {label:'Tàichính', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/cash.svg#icon', action:()=>renderFinancials()},
+      {label:'Danhmục', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/category.svg#icon', action:()=>renderCategories()},
+      {label:'Nhậpliệu', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/database-import.svg#icon', action:()=>renderDataEntry()},
+      {label:'Modules', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/puzzle.svg#icon', action:()=>renderModules()},
+      {label:'Logs', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/list-check.svg#icon', action:()=>renderLogs()},
+      {label:'Ngườidùng', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/user.svg#icon', action:()=>renderAllUsers()},
+    ]);
+  } else {
+    setNav([
+      {label:'Tổngquan', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/layout-dashboard.svg#icon', action:()=>renderDashboard()},
+      {label:'Côngty', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/building.svg#icon', action:()=>renderMyTenant()},
+      {label:'Sảnphẩm', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/box.svg#icon', action:()=>renderProducts()},
+      {label:'Nhânsự', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/users.svg#icon', action:()=>renderEmployees()},
+      {label:'Tàichính', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/cash.svg#icon', action:()=>renderFinancials()},
+      {label:'Danhmục', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/category.svg#icon', action:()=>renderCategories()},
+      {label:'Nhậpliệu', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/database-import.svg#icon', action:()=>renderDataEntry()},
+      {label:'Logs', icon:'https://cdn.jsdelivr.net/gh/tabler/icons/icons/list-check.svg#icon', action:()=>renderLogs()},
+    ]);
+  }
+  // default click first
+  const first = document.querySelector('#nav-menu .nav-link'); if(first) first.click();
+}
+
+// ===== DASHBOARD =====
+function renderDashboard(){
+  document.getElementById('mainview').innerHTML = `
+    <div class="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="glass p-4 rounded shadow"><b class="text-blue-700 text-lg">Tổng công ty</b><div class="text-2xl">${state.tenants.length}</div></div>
+      <div class="glass p-4 rounded shadow"><b class="text-blue-700 text-lg">Tổng nhân sự</b><div class="text-2xl">${state.employees.length}</div></div>
+      <div class="glass p-4 rounded shadow"><b class="text-blue-700 text-lg">Tổng sản phẩm</b><div class="text-2xl">${state.products.length}</div></div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="glass p-4 rounded shadow chart-container"><b class="text-blue-700">Doanh thu</b><canvas id="revenueChart"></canvas></div>
+      <div class="glass p-4 rounded shadow chart-container"><b class="text-blue-700">Tăng trưởng người dùng</b><canvas id="userGrowthChart"></canvas></div>
+    </div>
+    <div class="glass p-4 rounded shadow mt-4"><b class="text-blue-700">AI Insight:</b> <span id="ai-dash"></span></div>
+  `;
+  document.getElementById('ai-dash').innerText = 'Chào mừng đến QC60! Trợ lý AI luôn sẵn sàng hỗ trợ bạn.';
+  const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+  new Chart(revenueCtx, { type:'line', data:{ labels:['Th1','Th2','Th3','Th4','Th5','Th6'], datasets:[{ label:'Doanh thu (triệu VND)', data:[120,190,300,500,250,480], borderColor:'rgb(59,130,246)', backgroundColor:'rgba(59,130,246,.2)', tension:.3 }]}, options:{ responsive:true, maintainAspectRatio:false } });
+  const userGrowthCtx = document.getElementById('userGrowthChart').getContext('2d');
+  new Chart(userGrowthCtx, { type:'bar', data:{ labels:['Th1','Th2','Th3','Th4','Th5','Th6'], datasets:[{ label:'Người dùng mới', data:[15,22,35,48,29,55], backgroundColor:'rgb(6,182,212)' }]}, options:{ responsive:true, maintainAspectRatio:false } });
+}
+
+// ===== TENANTS =====
+function renderTenants(){
+  if (!checkPerm(state.user.role, 'manage')) return showAlert('Không có quyền','bg-red-200');
+  const rows = state.tenants.map(t=>`
+    <tr>
+      <td class="px-2 py-1">${t.name}</td>
+      <td class="px-2 py-1">${t.adminEmail}</td>
+      <td class="px-2 py-1">${(t.modules||[]).join(', ')}</td>
+      <td class="px-2 py-1">
+        <button onclick="editTenant('${t.id}')" class="text-blue-600 px-2">Sửa</button>
+        <button onclick="delTenant('${t.id}')" class="text-red-500 px-2">Xoá</button>
+      </td>
+    </tr>
+  `).join('');
+  document.getElementById('mainview').innerHTML = `
+    <div class="flex justify-between items-center mb-2">
+      <b class="text-blue-700 text-lg">Quản lý công ty (Tenants)</b>
+      <button onclick="showAddTenant()" class="bg-cyan-500 text-white rounded px-3 py-1">+ Thêm công ty</button>
+    </div>
+    <table class="min-w-full glass rounded">
+      <thead><tr class="bg-blue-100"><th class="px-2 py-1">Tên</th><th class="px-2 py-1">Email admin</th><th class="px-2 py-1">Modules</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+function showAddTenant(){
+  if (!checkPerm(state.user.role, 'manage')) return showAlert('Không có quyền','bg-red-200');
+  document.getElementById('mainview').innerHTML = `
+    <div class="glass max-w-sm mx-auto p-6 rounded shadow">
+      <h3 class="text-lg font-bold mb-3">Thêm công ty mới</h3>
+      <form id="add-tenant-form" class="flex flex-col gap-3">
+        <input class="border px-2 py-1 rounded" id="tenant-name" placeholder="Tên công ty" required>
+        <input class="border px-2 py-1 rounded" id="tenant-admin" placeholder="Email admin" type="email" required>
+        <button class="bg-blue-600 text-white rounded px-3 py-2">Tạo</button>
+      </form>
+    </div>
+  `;
+  document.getElementById('add-tenant-form').onsubmit = function(e){
+    e.preventDefault();
+    const name = document.getElementById('tenant-name').value.trim();
+    const adminEmail = document.getElementById('tenant-admin').value.trim();
+    state.tenants.push({id:genID(), name, adminEmail, modules:[], users:[]});
+    saveState(); logAction('AddTenant', name); renderTenants(); showAlert('Đã tạo công ty!');
+  };
+}
+function editTenant(id){
+  if (!checkPerm(state.user.role, 'manage')) return showAlert('Không có quyền','bg-red-200');
+  const t = state.tenants.find(x=>x.id==id); if(!t) return;
+  document.getElementById('mainview').innerHTML = `
+    <div class="glass max-w-sm mx-auto p-6 rounded shadow">
+      <h3 class="text-lg font-bold mb-3">Sửa công ty</h3>
+      <form id="edit-tenant-form" class="flex flex-col gap-3">
+        <input class="border px-2 py-1 rounded" id="tenant-name" value="${t.name}" required>
+        <input class="border px-2 py-1 rounded" id="tenant-admin" value="${t.adminEmail}" type="email" required>
+        <button class="bg-blue-600 text-white rounded px-3 py-2">Cập nhật</button>
+      </form>
+    </div>
+  `;
+  document.getElementById('edit-tenant-form').onsubmit = function(e){
+    e.preventDefault();
+    t.name = document.getElementById('tenant-name').value.trim();
+    t.adminEmail = document.getElementById('tenant-admin').value.trim();
+    saveState(); logAction('EditTenant', t.name); renderTenants(); showAlert('Đã cập nhật!');
+  };
+}
+function delTenant(id){
+  if (!checkPerm(state.user.role, 'manage')) return showAlert('Không có quyền','bg-red-200');
+  if(confirm('Xoá công ty?')){ state.tenants = state.tenants.filter(t=>t.id!=id); saveState(); logAction('DelTenant', id); renderTenants(); showAlert('Đã xoá công ty!'); }
+}
+
+// ===== MODULES =====
+function renderModules(){
+  if (!checkPerm(state.user.role, 'manage')) return showAlert('Không có quyền','bg-red-200');
+  document.getElementById('mainview').innerHTML = `
+    <div class="flex flex-col gap-2">
+      <h3 class="text-lg font-bold">Quản lý Modules</h3>
+      <div><b>Danh sách modules:</b> <span>${state.modules.join(', ')}</span></div>
+      <div>
+        <b>Gán module cho công ty:</b>
+        <form id="assign-module-form" class="flex gap-2 mt-1">
+          <select id="tenant-select" class="border rounded px-2 py-1">${state.tenants.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+          <select id="module-select" class="border rounded px-2 py-1">${state.modules.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+          <button class="bg-cyan-500 text-white rounded px-2">Gán</button>
+        </form>
+      </div>
+    </div>
+    <div class="glass mt-4 p-4 rounded shadow">
+      <b>AI Suggestion:</b> <span id="ai-module"></span>
+    </div>
+  `;
+  document.getElementById('assign-module-form').onsubmit = function(e){
+    e.preventDefault();
+    const tid = document.getElementById('tenant-select').value;
+    const mod = document.getElementById('module-select').value;
+    let t = state.tenants.find(x=>x.id==tid);
+    if(t && !t.modules.includes(mod)){ t.modules.push(mod); saveState(); logAction('AssignModule', `${t.name} - ${mod}`); showAlert('Đã gán module!'); renderModules(); }
+    else showAlert('Đã gán hoặc lỗi','bg-red-200');
+  };
+  document.getElementById('ai-module').innerText = 'AI: Hãy kích hoạt CRM, ERP cho các công ty mới!';
+}
+
+// ===== PRODUCTS =====
+function renderProducts(){
+  const rows = state.products.map(p=>`
+    <tr>
+      <td class="px-2 py-1">${p.name}</td>
+      <td class="px-2 py-1">${p.price.toLocaleString()} VND</td>
+      <td class="px-2 py-1">${p.tenantName}</td>
+      <td class="px-2 py-1">
+        <button onclick="editProduct('${p.id}')" class="text-blue-600 px-2">Sửa</button>
+        <button onclick="delProduct('${p.id}')" class="text-red-500 px-2">Xoá</button>
+      </td>
+    </tr>
+  `).join('');
+  document.getElementById('mainview').innerHTML = `
+    <div class="flex justify-between items-center mb-2">
+      <b class="text-blue-700 text-lg">Quản lý Sản phẩm/Dịch vụ</b>
+      <button onclick="showAddProduct()" class="bg-cyan-500 text-white rounded px-3 py-1">+ Thêm sản phẩm</button>
+    </div>
+    <table class="min-w-full glass rounded">
+      <thead><tr class="bg-blue-100"><th class="px-2 py-1">Tên</th><th class="px-2 py-1">Giá</th><th class="px-2 py-1">Công ty</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+function showAddProduct(){
+  document.getElementById('mainview').innerHTML = `
+    <div class="glass max-w-sm mx-auto p-6 rounded shadow">
+      <h3 class="text-lg font-bold mb-3">Thêm sản phẩm mới</h3>
+      <form id="add-product-form" class="flex flex-col gap-3">
+        <input class="border px-2 py-1 rounded" id="product-name" placeholder="Tên sản phẩm" required>
+        <input class="border px-2 py-1 rounded" id="product-price" placeholder="Giá (VND)" type="number" required>
+        <select id="product-tenant" class="border px-2 py-1 rounded" required>${state.tenants.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+        <button class="bg-blue-600 text-white rounded px-3 py-2">Tạo</button>
+      </form>
+    </div>
+  `;
+  document.getElementById('add-product-form').onsubmit = function(e){
+    e.preventDefault();
+    const name = document.getElementById('product-name').value.trim();
+    const price = parseInt(document.getElementById('product-price').value);
+    const tenantId = document.getElementById('product-tenant').value;
+    const tenant = state.tenants.find(t=>t.id===tenantId);
+    if(tenant){ state.products.push({id:genID(), name, price, tenantId, tenantName: tenant.name}); saveState(); logAction('AddProduct', \`\${name} cho công ty \${tenant.name}\`); renderProducts(); showAlert('Đã thêm sản phẩm!'); }
+    else showAlert('Lỗi: Không tìm thấy công ty','bg-red-200');
+  };
+}
+function editProduct(id){
+  const p = state.products.find(x=>x.id==id); if(!p) return;
+  document.getElementById('mainview').innerHTML = `
+    <div class="glass max-w-sm mx-auto p-6 rounded shadow">
+      <h3 class="text-lg font-bold mb-3">Sửa sản phẩm</h3>
+      <form id="edit-product-form" class="flex flex-col gap-3">
+        <input class="border px-2 py-1 rounded" id="product-name" value="${p.name}" required>
+        <input class="border px-2 py-1 rounded" id="product-price" value="${p.price}" type="number" required>
+        <button class="bg-blue-600 text-white rounded px-3 py-2">Cập nhật</button>
+      </form>
+    </div>
+  `;
+  document.getElementById('edit-product-form').onsubmit = function(e){
+    e.preventDefault();
+    p.name = document.getElementById('product-name').value.trim();
+    p.price = parseInt(document.getElementById('product-price').value);
+    saveState(); logAction('EditProduct', p.name); renderProducts(); showAlert('Đã cập nhật!');
+  };
+}
+function delProduct(id){
+  if(confirm('Xoá sản phẩm?')){ state.products = state.products.filter(p=>p.id!=id); saveState(); logAction('DelProduct', id); renderProducts(); showAlert('Đã xoá sản phẩm!'); }
+}
+
+// ===== EMPLOYEES =====
+function renderEmployees(){
+  const rows = state.employees.map(e=>`
+    <tr>
+      <td class="px-2 py-1">${e.name}</td>
+      <td class="px-2 py-1">${e.position}</td>
+      <td class="px-2 py-1">${e.department}</td>
+      <td class="px-2 py-1">${e.tenantName}</td>
+      <td class="px-2 py-1"><button onclick="delEmployee('${e.id}')" class="text-red-500 px-2">Xoá</button></td>
+    </tr>
+  `).join('');
+  document.getElementById('mainview').innerHTML = `
+    <div class="flex justify-between items-center mb-2"><b class="text-blue-700 text-lg">Quản lý Nhân sự</b><button onclick="showAddEmployee()" class="bg-cyan-500 text-white rounded px-3 py-1">+ Thêm nhân viên</button></div>
+    <table class="min-w-full glass rounded">
+      <thead><tr class="bg-blue-100"><th class="px-2 py-1">Tên</th><th class="px-2 py-1">Chức vụ</th><th class="px-2 py-1">Phòng ban</th><th class="px-2 py-1">Công ty</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+function showAddEmployee(){
+  document.getElementById('mainview').innerHTML = `
+    <div class="glass max-w-sm mx-auto p-6 rounded shadow">
+      <h3 class="text-lg font-bold mb-3">Thêm nhân viên mới</h3>
+      <form id="add-employee-form" class="flex flex-col gap-3">
+        <input class="border px-2 py-1 rounded" id="employee-name" placeholder="Tên nhân viên" required>
+        <input class="border px-2 py-1 rounded" id="employee-position" placeholder="Chức vụ" required>
+        <input class="border px-2 py-1 rounded" id="employee-department" placeholder="Phòng ban" required>
+        <select id="employee-tenant" class="border px-2 py-1 rounded" required>${state.tenants.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+        <button class="bg-blue-600 text-white rounded px-3 py-2">Tạo</button>
+      </form>
+    </div>
+  `;
+  document.getElementById('add-employee-form').onsubmit = function(e){
+    e.preventDefault();
+    const name = document.getElementById('employee-name').value.trim();
+    const position = document.getElementById('employee-position').value.trim();
+    const department = document.getElementById('employee-department').value.trim();
+    const tenantId = document.getElementById('employee-tenant').value;
+    const tenant = state.tenants.find(t=>t.id===tenantId);
+    if(tenant){ state.employees.push({id:genID(), name, position, department, tenantId, tenantName: tenant.name}); saveState(); logAction('AddEmployee', \`\${name} cho công ty \${tenant.name}\`); renderEmployees(); showAlert('Đã thêm nhân viên!'); }
+    else showAlert('Lỗi: Không tìm thấy công ty','bg-red-200');
+  };
+}
+function delEmployee(id){
+  if(confirm('Xoá nhân viên này?')){ state.employees = state.employees.filter(e=>e.id!=id); saveState(); logAction('DelEmployee', id); renderEmployees(); showAlert('Đã xoá nhân viên!'); }
+}
+
+// ===== FINANCIALS =====
+function renderFinancials(){
+  const rows = state.financials.map(f=>`
+    <tr>
+      <td class="px-2 py-1">${f.date}</td>
+      <td class="px-2 py-1">${f.type==='income'?'Thu':'Chi'}</td>
+      <td class="px-2 py-1">${f.amount.toLocaleString()} VND</td>
+      <td class="px-2 py-1">${f.description}</td>
+      <td class="px-2 py-1"><button onclick="delFinancialEntry('${f.id}')" class="text-red-500 px-2">Xoá</button></td>
+    </tr>
+  `).join('');
+  document.getElementById('mainview').innerHTML = `
+    <div class="flex justify-between items-center mb-2"><b class="text-blue-700 text-lg">Quản lý Tài chính</b><button onclick="showAddFinancialEntry()" class="bg-cyan-500 text-white rounded px-3 py-1">+ Thêm khoản mục</button></div>
+    <table class="min-w-full glass rounded">
+      <thead><tr class="bg-blue-100"><th class="px-2 py-1">Ngày</th><th class="px-2 py-1">Loại</th><th class="px-2 py-1">Số tiền</th><th class="px-2 py-1">Mô tả</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+function showAddFinancialEntry(){
+  document.getElementById('mainview').innerHTML = `
+    <div class="glass max-w-sm mx-auto p-6 rounded shadow">
+      <h3 class="text-lg font-bold mb-3">Thêm khoản mục Tài chính</h3>
+      <form id="add-financial-form" class="flex flex-col gap-3">
+        <input class="border px-2 py-1 rounded" id="financial-date" type="date" required>
+        <select class="border px-2 py-1 rounded" id="financial-type" required><option value="income">Thu</option><option value="expense">Chi</option></select>
+        <input class="border px-2 py-1 rounded" id="financial-amount" placeholder="Số tiền (VND)" type="number" required>
+        <input class="border px-2 py-1 rounded" id="financial-description" placeholder="Mô tả" required>
+        <button class="bg-blue-600 text-white rounded px-3 py-2">Tạo</button>
+      </form>
+    </div>
+  `;
+  document.getElementById('add-financial-form').onsubmit = function(e){
+    e.preventDefault();
+    const date = document.getElementById('financial-date').value;
+    const type = document.getElementById('financial-type').value;
+    const amount = parseInt(document.getElementById('financial-amount').value);
+    const description = document.getElementById('financial-description').value.trim();
+    state.financials.push({id:genID(), date, type, amount, description});
+    saveState(); logAction('AddFinancialEntry', \`\${type}: \${amount}\`); renderFinancials(); showAlert('Đã thêm khoản mục!');
+  };
+}
+function delFinancialEntry(id){
+  if(confirm('Xoá khoản mục này?')){ state.financials = state.financials.filter(f=>f.id!=id); saveState(); logAction('DelFinancialEntry', id); renderFinancials(); showAlert('Đã xoá khoản mục!'); }
+}
+
+// ===== CATEGORIES =====
+function renderCategories(){
+  const rows = state.categories.map(c=>`
+    <tr><td class="px-2 py-1">${c.name}</td><td class="px-2 py-1">${c.tenantName}</td><td class="px-2 py-1"><button onclick="delCategory('${c.id}')" class="text-red-500 px-2">Xoá</button></td></tr>
+  `).join('');
+  document.getElementById('mainview').innerHTML = `
+    <div class="flex justify-between items-center mb-2"><b class="text-blue-700 text-lg">Khai báo Danh mục</b><button onclick="showAddCategory()" class="bg-cyan-500 text-white rounded px-3 py-1">+ Thêm danh mục</button></div>
+    <table class="min-w-full glass rounded">
+      <thead><tr class="bg-blue-100"><th class="px-2 py-1">Tên danh mục</th><th class="px-2 py-1">Công ty</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+function showAddCategory(){
+  document.getElementById('mainview').innerHTML = `
+    <div class="glass max-w-sm mx-auto p-6 rounded shadow">
+      <h3 class="text-lg font-bold mb-3">Thêm danh mục mới</h3>
+      <form id="add-category-form" class="flex flex-col gap-3">
+        <input class="border px-2 py-1 rounded" id="category-name" placeholder="Tên danh mục" required>
+        <select id="category-tenant" class="border px-2 py-1 rounded" required>${state.tenants.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+        <button class="bg-blue-600 text-white rounded px-3 py-2">Tạo</button>
+      </form>
+    </div>
+  `;
+  document.getElementById('add-category-form').onsubmit = function(e){
+    e.preventDefault();
+    const name = document.getElementById('category-name').value.trim();
+    const tenantId = document.getElementById('category-tenant').value;
+    const tenant = state.tenants.find(t=>t.id===tenantId);
+    if(tenant){ state.categories.push({id:genID(), name, tenantId, tenantName: tenant.name}); saveState(); logAction('AddCategory', \`\${name} cho công ty \${tenant.name}\`); renderCategories(); showAlert('Đã thêm danh mục!'); }
+    else showAlert('Lỗi: Không tìm thấy công ty','bg-red-200');
+  };
+}
+function delCategory(id){
+  if(confirm('Xoá danh mục này?')){ state.categories = state.categories.filter(c=>c.id!=id); saveState(); logAction('DelCategory', id); renderCategories(); showAlert('Đã xoá danh mục!'); }
+}
+
+// ===== DATA ENTRY =====
+function renderDataEntry(){
+  document.getElementById('mainview').innerHTML = `
+    <div class="glass p-6 rounded shadow">
+      <h3 class="text-lg font-bold mb-3">Nhập liệu</h3>
+      <p class="text-gray-600">Nhập mảng JSON để thêm nhanh dữ liệu (mô phỏng).</p>
+      <div class="mt-4">
+        <label for="data-input" class="block text-sm font-medium text-gray-700">Dữ liệu dạng JSON:</label>
+        <textarea id="data-input" class="w-full h-40 border rounded p-2 mt-1 text-sm" placeholder='[ { "name": "Sản phẩm A", "price": 100000 }, ... ]'></textarea>
+      </div>
+      <button onclick="processDataEntry()" class="mt-3 bg-blue-600 text-white rounded px-3 py-2">Xử lý nhập liệu</button>
+    </div>
+  `;
+}
+function processDataEntry(){
+  const input = document.getElementById('data-input').value;
+  try{
+    const data = JSON.parse(input);
+    if(Array.isArray(data)){ showAlert(\`Đã nhập liệu thành công \${data.length} bản ghi! (Mô phỏng)\`); logAction('DataEntry', \`Nhập liệu \${data.length} bản ghi\`); }
+    else showAlert('Lỗi: Dữ liệu không phải là mảng JSON hợp lệ!','bg-red-200');
+  } catch(e){ showAlert('Lỗi: Dữ liệu không đúng định dạng JSON!','bg-red-200'); }
+}
+
+// ===== LOGS =====
+function renderLogs(){
+  const logs = state.auditLogs.slice().reverse().map(l=>`
+    <tr><td class="px-2 py-1">${l.time}</td><td class="px-2 py-1">${l.user}</td><td class="px-2 py-1">${l.action}</td><td class="px-2 py-1">${l.detail||''}</td></tr>
+  `).join('');
+  document.getElementById('mainview').innerHTML = `
+    <h3 class="text-lg font-bold mb-3">Nhật ký thao tác (Audit Log)</h3>
+    <table class="min-w-full glass rounded text-xs">
+      <thead><tr class="bg-blue-100"><th class="px-2 py-1">Thời gian</th><th class="px-2 py-1">User</th><th class="px-2 py-1">Hành động</th><th class="px-2 py-1">Chi tiết</th></tr></thead>
+      <tbody>${logs}</tbody>
+    </table>
+  `;
+}
+
+// ===== BACKUP =====
+function exportBackup(){
+  const data = { tenants:state.tenants, modules:state.modules, products:state.products, categories:state.categories, employees:state.employees, financials:state.financials, logs:state.auditLogs };
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='qc60-backup.json'; a.click(); logAction('Backup','Xuất backup'); showAlert('Đã tải backup!');
+}
+
+// ===== AI PANEL =====
+function openAIPanel(){ document.getElementById('ai-panel').classList.remove('hidden'); document.getElementById('ai-input').focus(); }
+function closeAIPanel(){ document.getElementById('ai-panel').classList.add('hidden'); }
+document.getElementById('ai-btn').onclick = openAIPanel;
+document.getElementById('ai-form').onsubmit = function(e){
+  e.preventDefault();
+  const input = document.getElementById('ai-input'); const chat = document.getElementById('ai-chat');
+  const userMsg = input.value.trim(); if(!userMsg) return;
+  chat.innerHTML += \`<div class="mb-1"><b>Bạn:</b> \${userMsg}</div>\`; input.value='';
+  setTimeout(()=>{ const aiMsg = aiAssistant(userMsg); chat.innerHTML += \`<div class="mb-1 text-cyan-700"><b>AI:</b> \${aiMsg}</div>\`; chat.scrollTop = chat.scrollHeight; }, 600);
+};
+function aiAssistant(msg){
+  msg = msg.toLowerCase();
+  if(msg.includes('xin chào')) return "Xin chào Chủ tịch! Tôi là trợ lý AI QC60. Chủ tịch cần hỗ trợ gì ạ?";
+  if(msg.includes('backup')) return "Hãy dùng nút 'Sao lưu dữ liệu' để tải backup JSON mọi lúc.";
+  if(msg.includes('phân quyền')) return "Vào mục 'Người dùng' để cấp quyền cho Admin và Nhân viên.";
+  if(msg.includes('module')||msg.includes('crm')) return "Gán CRM/ERP cho từng công ty ở mục 'Modules'.";
+  if(msg.includes('bảo mật')) return "Mọi dữ liệu chỉ truy cập đúng vai trò. Cấp quyền cẩn trọng.";
+  if(msg.includes('ai')) return "Tôi có thể phân tích báo cáo và gợi ý hành động quản trị. Hãy hỏi insight!";
+  if(msg.includes('hướng dẫn')) return "Bạn muốn hướng dẫn tạo công ty, gán module, quản trị người dùng hay nhập liệu?";
+  if(msg.includes('reset')||msg.includes('xóa hết')){ resetState(); return "Đã reset dữ liệu. Trang sẽ tải lại."; }
+  if(msg.includes('sản phẩm')) return "Module sản phẩm sẵn sàng: thêm/sửa/xoá, gán theo công ty.";
+  if(msg.includes('nhân sự')) return "Quản lý thông tin nhân viên theo công ty, phòng ban.";
+  if(msg.includes('tài chính')) return "Nhập các khoản thu/chi để theo dõi dòng tiền.";
+  return "Đã ghi nhận. Mô tả rõ hơn yêu cầu để tôi hỗ trợ chính xác.";
+}
+
+// ===== INIT =====
+loadState();
+['modules','products','categories','employees','financials','auditLogs','tenants'].forEach(k=>{ if(!Array.isArray(state[k])) state[k]=[]; });
+renderApp();
+</script>
+</html>
