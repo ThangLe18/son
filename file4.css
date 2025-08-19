@@ -1,0 +1,335 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header styles */
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.main-title {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    color: #7f8c8d;
+    font-weight: 300;
+}
+
+/* Content sections */
+.content {
+    display: grid;
+    gap: 30px;
+}
+
+.text-section {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.text-section:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.section-title {
+    font-size: 2rem;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #3498db;
+    position: relative;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    width: 50px;
+    height: 3px;
+    background: #e74c3c;
+}
+
+/* Article styles */
+.article {
+    margin-bottom: 20px;
+}
+
+.lead-paragraph {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: #34495e;
+    margin-bottom: 20px;
+    line-height: 1.8;
+    padding: 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 10px;
+    border-left: 5px solid #3498db;
+}
+
+.body-text {
+    font-size: 1.1rem;
+    color: #555;
+    margin-bottom: 15px;
+    text-align: justify;
+}
+
+/* Quote styles */
+.quote {
+    padding: 30px;
+    background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+    border-radius: 15px;
+    border-left: 8px solid #fdcb6e;
+    margin: 20px 0;
+    position: relative;
+}
+
+.quote::before {
+    content: '"';
+    font-size: 4rem;
+    color: #e17055;
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    font-family: Georgia, serif;
+}
+
+.quote-text {
+    font-size: 1.4rem;
+    font-style: italic;
+    color: #2d3436;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+.quote-author {
+    font-size: 1.1rem;
+    color: #636e72;
+    font-weight: 600;
+    text-align: right;
+    display: block;
+}
+
+/* List styles */
+.lists-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+.list-group {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+}
+
+.list-title {
+    font-size: 1.3rem;
+    color: #495057;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.unordered-list, .ordered-list {
+    padding-left: 25px;
+}
+
+.unordered-list li, .ordered-list li {
+    margin-bottom: 10px;
+    color: #495057;
+    font-size: 1.1rem;
+}
+
+.unordered-list li::marker {
+    color: #e74c3c;
+    font-size: 1.2em;
+}
+
+.ordered-list li::marker {
+    color: #3498db;
+    font-weight: 600;
+}
+
+/* Code block styles */
+.code-block {
+    background: #2c3e50;
+    color: #ecf0f1;
+    padding: 25px;
+    border-radius: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    border: 3px solid #34495e;
+    position: relative;
+}
+
+.code-block::before {
+    content: 'JavaScript';
+    position: absolute;
+    top: -15px;
+    left: 20px;
+    background: #e74c3c;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* Form styles */
+.form {
+    display: grid;
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.form-input, .form-textarea {
+    padding: 12px 15px;
+    border: 2px solid #bdc3c7;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background: #f8f9fa;
+}
+
+.form-input:focus, .form-textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    background: white;
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-button {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    justify-self: start;
+}
+
+.form-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
+}
+
+.form-button:active {
+    transform: translateY(0);
+}
+
+/* Footer styles */
+.footer {
+    text-align: center;
+    margin-top: 40px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.footer-text {
+    color: #7f8c8d;
+    font-size: 1rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .main-title {
+        font-size: 2.5rem;
+    }
+    
+    .lists-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .text-section {
+        padding: 20px;
+    }
+    
+    .quote {
+        padding: 20px;
+    }
+    
+    .quote-text {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-title {
+        font-size: 2rem;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+    }
+    
+    .lead-paragraph {
+        font-size: 1.1rem;
+    }
+    
+    .body-text {
+        font-size: 1rem;
+    }
+} 
